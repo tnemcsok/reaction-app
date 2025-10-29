@@ -214,7 +214,6 @@
         audio: document.getElementById('audio'),
         fullscreen: document.getElementById('fullscreen'),
         display: document.getElementById('display'),
-        status: document.getElementById('status'),
         startBtn: document.getElementById('startBtn'),
         stopBtn: document.getElementById('stopBtn'),
         bigger: document.getElementById('bigger'),
@@ -223,6 +222,8 @@
 
       let timer = null;
       let last = null;
+      const COLORS = ['#ef4444', '#22c55e', '#3b82f6', '#eab308']; // red, green, blue, yellow
+      let lastColor = null;
       let fontScale = 1;
 
       function clamp(n, lo, hi) {
@@ -260,8 +261,20 @@
       }
 
       function show(n) {
+        // pick a color different from the last
+        let color;
+        do {
+          color = COLORS[Math.floor(Math.random() * COLORS.length)];
+        } while (color === lastColor && COLORS.length > 1);
+        lastColor = color;
+
+        el.display.style.color = color;
         el.display.textContent = n;
         el.display.classList.remove('dim');
+        // retrigger pop animation
+        el.display.classList.remove('change');
+        void el.display.offsetWidth; // reflow to restart animation
+        el.display.classList.add('change');
         if (el.audio.checked) beep();
       }
 
@@ -288,7 +301,7 @@
         el.interval.value = sec;
         el.startBtn.disabled = true;
         el.stopBtn.disabled = false;
-        el.status.textContent = `Running: new number every ${sec}s`;
+
         tick();
         timer = setInterval(tick, sec * 1000);
         if (el.fullscreen.checked) toggleFullscreen(true);
@@ -300,7 +313,7 @@
         el.startBtn.disabled = false;
         el.stopBtn.disabled = true;
         el.display.classList.add('dim');
-        el.status.textContent = 'Stopped.';
+
         toggleFullscreen(false);
       }
 
