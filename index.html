@@ -27,6 +27,10 @@
         grid-template-rows: auto 1fr auto;
         min-height: 100%;
         gap: 16px;
+        transition: grid-template-rows 0.3s ease;
+      }
+      .wrap.menu-hidden {
+        grid-template-rows: 1fr auto;
       }
       header {
         display: flex;
@@ -145,7 +149,7 @@
     </style>
   </head>
   <body>
-    <div class="wrap">
+    <div class="wrap" id="wrapper">
       <header id="header">
         <div class="controls">
           <span class="pill"
@@ -183,6 +187,8 @@
           <button id="startBtn" class="btn primary">Start</button>
           <button id="stopBtn" class="btn stop" disabled>Stop</button>
           <button id="toggleMenu" class="btn">Hide menu</button>
+        </div>
+        <div class="row">
           <button id="bigger" class="btn" title="Increase size">A+</button>
           <button id="smaller" class="btn" title="Decrease size">A-</button>
         </div>
@@ -204,6 +210,7 @@
         smaller: document.getElementById('smaller'),
         toggleMenu: document.getElementById('toggleMenu'),
         header: document.getElementById('header'),
+        wrapper: document.getElementById('wrapper'),
       };
 
       let timer = null;
@@ -311,6 +318,7 @@
 
       el.toggleMenu.addEventListener('click', () => {
         const hidden = el.header.classList.toggle('hidden');
+        el.wrapper.classList.toggle('menu-hidden', hidden);
         el.toggleMenu.textContent = hidden ? 'Show menu' : 'Hide menu';
       });
 
