@@ -1,21 +1,16 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-
-// Features:
-// - Random numbers in a range at a fixed interval
-// - No immediate repeat (number + color)
-// - Beep option, Fullscreen option
-// - Hide/Show menu collapses header and reflows grid rows to `1fr auto`
-// - Font size controls (A+/A-)
-// - Spacebar toggles Start/Stop
-// - LocalStorage persistence
+import React, { useEffect, useRef, useState } from "react";
+import { STORAGE_KEY, randInt, chooseColor, beep, clamp } from "./utils";
 
 export default function App() {
+  // Settings
   const [min, setMin] = useState(1);
   const [max, setMax] = useState(4);
   const [intervalSec, setIntervalSec] = useState(5);
   const [noRepeat, setNoRepeat] = useState(true);
   const [audioOn, setAudioOn] = useState(false);
   const [wantFullscreen, setWantFullscreen] = useState(false);
+  const [showProgress, setShowProgress] = useState(false); // NEW
+
   const [running, setRunning] = useState(false);
   const [menuHidden, setMenuHidden] = useState(false);
   const [fontScale, setFontScale] = useState(1);
@@ -28,13 +23,12 @@ export default function App() {
   const lastColorRef = useRef(null);
   const timerRef = useRef(null);
 
-  const COLORS = useMemo(
-    () => ["#ef4444", "#22c55e", "#3b82f6", "#eab308"],
-    []
-  );
+  // Progress state/refs
+  const [progress, setProgress] = useState(0); // 0..1
+  const lastTickRef = useRef(null);
+  const rafRef = useRef(null);
 
-  // Persistence
-  const STORAGE_KEY = "rnd-settings-react";
+  // Load defaults from Local Storage
   useEffect(() => {
     try {
       const s = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
@@ -46,76 +40,77 @@ export default function App() {
       if (s.wantFullscreen !== undefined) setWantFullscreen(!!s.wantFullscreen);
       if (s.menuHidden !== undefined) setMenuHidden(!!s.menuHidden);
       if (s.fontScale !== undefined) setFontScale(Number(s.fontScale));
+      if (s.showProgress !== undefined) setShowProgress(!!s.showProgress); // NEW
     } catch {}
   }, []);
+
+  // Persist settings
   useEffect(() => {
     const data = {
       min, max, intervalSec,
       noRepeat, audioOn, wantFullscreen,
       menuHidden, fontScale,
+      showProgress, // NEW
     };
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch {}
-  }, [min, max, intervalSec, noRepeat, audioOn, wantFullscreen, menuHidden, fontScale]);
-
-  function clamp(n, lo, hi) { return Math.min(hi, Math.max(lo, n)); }
-
-  function randInt(a, b) {
-    let minV = Math.ceil(Math.min(a, b));
-    let maxV = Math.floor(Math.max(a, b));
-    if (minV === maxV) return minV;
-    let r;
-    do {
-      r = Math.floor(Math.random() * (maxV - minV + 1)) + minV;
-    } while (noRepeat && maxV > minV && r === lastNumberRef.current);
-    lastNumberRef.current = r;
-    return r;
-  }
-
-  function chooseColor() {
-    let c;
-    do {
-      c = COLORS[Math.floor(Math.random() * COLORS.length)];
-    } while (c === lastColorRef.current && COLORS.length > 1);
-    lastColorRef.current = c;
-    return c;
-  }
-
-  function beep() {
-    if (!audioOn) return;
-    try {
-      const Ctx = window.AudioContext || window.webkitAudioContext;
-      const ctx = new Ctx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "square";
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.4, ctx.currentTime + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.15);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.16);
-    } catch {}
-  }
+  }, [min, max, intervalSec, noRepeat, audioOn, wantFullscreen, menuHidden, fontScale, showProgress]);
 
   const tick = () => {
-    const v = randInt(min, max);
-    setDisplay(String(v));
-    const c = chooseColor();
-    setColor(c);
+    const nextNum = randInt(min, max, noRepeat, lastNumberRef.current);
+    lastNumberRef.current = nextNum;
+    setDisplay(String(nextNum));
+
+    const nextColor = chooseColor(lastColorRef.current);
+    lastColorRef.current = nextColor;
+    setColor(nextColor);
+
     setPopKey((k) => k + 1);
-    beep();
+
+    // Reset progress cycle
+    lastTickRef.current = performance.now();
+    setProgress(0);
+
+    if (audioOn) beep();
   };
 
+  // Progress loop (requestAnimationFrame)
+  useEffect(() => {
+    if (!running || !showProgress) {
+      // Stop anim and reset if not running or not showing
+      cancelAnimationFrame(rafRef.current);
+      setProgress(0);
+      return;
+    }
+
+    const sec = clamp(Number(intervalSec) || 5, 0.25, 3600);
+    const duration = sec * 1000;
+
+    const loop = () => {
+      if (!lastTickRef.current) {
+        lastTickRef.current = performance.now();
+      }
+      const now = performance.now();
+      const elapsed = now - lastTickRef.current;
+      const frac = Math.min(1, Math.max(0, elapsed / duration));
+      setProgress(frac);
+      rafRef.current = requestAnimationFrame(loop);
+    };
+
+    rafRef.current = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [running, showProgress, intervalSec]);
+
+  // Start ticking when running
   useEffect(() => {
     if (!running) return;
     const sec = clamp(Number(intervalSec) || 5, 0.25, 3600);
-    tick();
+    tick(); // sets lastTickRef & resets progress
     timerRef.current = setInterval(tick, sec * 1000);
     return () => clearInterval(timerRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [running, intervalSec, min, max, noRepeat]);
 
+  // Space toggles
   useEffect(() => {
     const onKey = (e) => {
       if (e.code === "Space") {
@@ -137,10 +132,16 @@ export default function App() {
         }
       } catch {}
     }
+    // Initialize progress cycle
+    lastTickRef.current = performance.now();
+    setProgress(0);
   }
+
   async function stop() {
     setRunning(false);
     clearInterval(timerRef.current);
+    cancelAnimationFrame(rafRef.current);
+    setProgress(0);
     try { if (document.fullscreenElement) await document.exitFullscreen(); } catch {}
   }
 
@@ -195,13 +196,23 @@ export default function App() {
               <input type="checkbox" checked={wantFullscreen} onChange={(e) => setWantFullscreen(e.target.checked)} />
               fullscreen
             </label>
+
+            {/* NEW: show progress setting */}
+            <label className="inline-flex items-center gap-2 border border-[#222a3a] bg-[#121722] px-3 py-1.5 rounded-full text-xs text-[#a0a3ac]">
+              <input type="checkbox" checked={showProgress} onChange={(e) => setShowProgress(e.target.checked)} />
+              show progress
+            </label>
           </div>
         </header>
       )}
 
+      {/* Progress bar (always sits right under where header would be) */}
+  
+
       {/* Main */}
-      <main className="grid place-items-center px-4">
-        <div key={popKey} className="font-extrabold leading-none tracking-tight select-none" style={numberStyle}>
+      <main className="px-4">
+        {showProgress && (<ProgressBar progress={progress} />)}
+        <div key={popKey} className="grid place-items-center h-full font-extrabold leading-none tracking-tight select-none" style={numberStyle}>
           <PopNumber text={display} />
         </div>
       </main>
@@ -248,10 +259,29 @@ export default function App() {
   );
 }
 
+// ---- Components ----
+
 function PopNumber({ text }) {
   return (
     <div style={{ animation: "pop 150ms ease-out" }} className="text-[clamp(96px,18vw,320px)]">
       {text}
+    </div>
+  );
+}
+
+function ProgressBar({ progress }) {
+  // progress: 0..1
+  const pct = Math.round(progress * 100);
+  return (
+    <div className="w-full h-2 bg-[#0f1522] border-b border-[#1b2230]">
+      <div
+        className="h-full bg-gradient-to-r from-[#4ade80] to-[#60a5fa] transition-[width] duration-75 ease-linear"
+        style={{ width: `${pct}%` }}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={pct}
+        role="progressbar"
+      />
     </div>
   );
 }
