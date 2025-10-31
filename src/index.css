@@ -1,0 +1,8 @@
+@import "tailwindcss";
+
+/* tiny theme to match the single-file app */
+html, body, #root {
+  height: 100%;
+  background: #0b0e14;
+  color: #f2f2f2;
+}
