@@ -27,6 +27,7 @@ export default function App() {
   const [progress, setProgress] = useState(0); // 0..1
   const lastTickRef = useRef(null);
   const rafRef = useRef(null);
+  const wakeLockRef = useRef(null);
 
   // Load defaults from Local Storage
   useEffect(() => {
@@ -124,6 +125,16 @@ export default function App() {
 
   async function start() {
     setRunning(true);
+
+    // Try to keep screen awake
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLockRef.current = await navigator.wakeLock.request('screen');
+      }
+    } catch (err) {
+      console.warn('Wake lock request failed:', err);
+    }
+
     if (wantFullscreen) {
       try {
         const root = document.documentElement;
@@ -132,18 +143,31 @@ export default function App() {
         }
       } catch {}
     }
-    // Initialize progress cycle
+
     lastTickRef.current = performance.now();
     setProgress(0);
-  }
+}
+
 
   async function stop() {
     setRunning(false);
     clearInterval(timerRef.current);
     cancelAnimationFrame(rafRef.current);
     setProgress(0);
-    try { if (document.fullscreenElement) await document.exitFullscreen(); } catch {}
-  }
+
+    // Release wake lock
+    try {
+      await wakeLockRef.current?.release();
+      wakeLockRef.current = null;
+    } catch (err) {
+      console.warn('Wake lock release failed:', err);
+    }
+
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+    } catch {}
+}
+
 
   const wrapperRows = menuHidden ? "1fr auto" : "auto 1fr auto";
   const numberStyle = { color, transform: `scale(${fontScale})`, transformOrigin: "center" };
