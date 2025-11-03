@@ -74,7 +74,7 @@ export default function App() {
     if (audioOn) beep();
   };
 
-  // Progress loop (requestAnimationFrame)
+  // Progress loop
   useEffect(() => {
     if (!running || !showProgress) {
       // Stop anim and reset if not running or not showing
