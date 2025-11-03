@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { STORAGE_KEY, randInt, chooseColor, beep, clamp } from "./utils";
+import {Header} from "./components/Header"
 
 export default function App() {
   // Settings
@@ -176,58 +177,15 @@ export default function App() {
     <div className="h-screen grid gap-4" style={{ gridTemplateRows: wrapperRows }}>
       {/* Header */}
       {!menuHidden && (
-        <header className="w-full px-4 py-3 border-b border-[#1b2230]">
-          <div className="flex flex-wrap justify-between items-center gap-2">
-            <span className="inline-flex items-center gap-2 border border-[#222a3a] bg-[#121722] px-3 py-1.5 rounded-full text-xs text-[#a0a3ac]">
-              Range
-              <label className="flex items-center gap-1">min
-                <input
-                  type="number" value={min}
-                  onChange={(e) => setMin(Number(e.target.value))}
-                  className="bg-[#121722] border border-[#222a3a] text-sm rounded-md px-2 py-1 w-20 text-white"
-                />
-              </label>
-              <label className="flex items-center gap-1">max
-                <input
-                  type="number" value={max}
-                  onChange={(e) => setMax(Number(e.target.value))}
-                  className="bg-[#121722] border border-[#222a3a] text-sm rounded-md px-2 py-1 w-20 text-white"
-                />
-              </label>
-            </span>
-
-            <span className="inline-flex items-center gap-2 border border-[#222a3a] bg-[#121722] px-3 py-1.5 rounded-full text-xs text-[#a0a3ac]">
-              Interval (sec)
-              <input
-                type="number" min={0.5} step={0.5}
-                value={intervalSec}
-                onChange={(e) => setIntervalSec(Number(e.target.value))}
-                className="bg-[#121722] border border-[#222a3a] text-sm rounded-md px-2 py-1 w-24 text-white"
-              />
-            </span>
-
-            <label className="inline-flex items-center gap-2 border border-[#222a3a] bg-[#121722] px-3 py-1.5 rounded-full text-xs text-[#a0a3ac]">
-              <input type="checkbox" checked={noRepeat} onChange={(e) => setNoRepeat(e.target.checked)} />
-              no immediate repeat
-            </label>
-
-            <label className="inline-flex items-center gap-2 border border-[#222a3a] bg-[#121722] px-3 py-1.5 rounded-full text-xs text-[#a0a3ac]">
-              <input type="checkbox" checked={audioOn} onChange={(e) => setAudioOn(e.target.checked)} />
-              beep
-            </label>
-
-            <label className="inline-flex items-center gap-2 border border-[#222a3a] bg-[#121722] px-3 py-1.5 rounded-full text-xs text-[#a0a3ac]">
-              <input type="checkbox" checked={wantFullscreen} onChange={(e) => setWantFullscreen(e.target.checked)} />
-              fullscreen
-            </label>
-
-            {/* NEW: show progress setting */}
-            <label className="inline-flex items-center gap-2 border border-[#222a3a] bg-[#121722] px-3 py-1.5 rounded-full text-xs text-[#a0a3ac]">
-              <input type="checkbox" checked={showProgress} onChange={(e) => setShowProgress(e.target.checked)} />
-              show progress
-            </label>
-          </div>
-        </header>
+        <Header
+          min={min} setMin={setMin}
+          max={max} setMax={setMax}
+          intervalSec={intervalSec} setIntervalSec={setIntervalSec}
+          noRepeat={noRepeat} setNoRepeat={setNoRepeat}
+          audioOn={audioOn} setAudioOn={setAudioOn}
+          wantFullscreen={wantFullscreen} setWantFullscreen={setWantFullscreen}
+          showProgress={showProgress} setShowProgress={setShowProgress}
+        />
       )}
 
       {/* Progress bar (always sits right under where header would be) */}
@@ -242,40 +200,60 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="flex items-center justify-between gap-2 flex-wrap p-4 border-t border-[#1b2230]">
+      <footer className="flex items-center justify-between gap-2 flex-wrap p-4 border-t border-[#1b2230] z-10">
         <div className="flex items-center gap-2 flex-wrap">
           <button
-            onClick={start} disabled={running}
-            className="px-4 py-2 rounded-xl font-semibold text-sm bg-gradient-to-tr from-[#4ade80] to-[#60a5fa] text-[#0b0e14] disabled:opacity-50">
+            type="button"
+            onClick={start}
+            onPointerDown={start}
+            disabled={running}
+            className="px-4 py-2 rounded-xl font-semibold text-sm bg-gradient-to-tr from-[#4ade80] to-[#60a5fa] text-[#0b0e14] disabled:opacity-50 touch-manipulation"
+          >
             Start
           </button>
+
           <button
-            onClick={stop} disabled={!running}
-            className="px-4 py-2 rounded-xl font-semibold text-sm bg-[#fb7185] text-[#0b0e14] disabled:opacity-50">
+            type="button"
+            onClick={stop}
+            onPointerDown={stop}
+            disabled={!running}
+            className="px-4 py-2 rounded-xl font-semibold text-sm bg-[#fb7185] text-[#0b0e14] disabled:opacity-50 touch-manipulation"
+          >
             Stop
           </button>
+
           <button
+            type="button"
             onClick={() => setMenuHidden((v) => !v)}
-            className="px-4 py-2 rounded-xl font-semibold text-[#fff] text-sm bg-[#121722] border border-[#222a3a]">
+            onPointerDown={() => setMenuHidden((v) => !v)}
+            className="px-4 py-2 rounded-xl font-semibold text-[#fff] text-sm bg-[#121722] border border-[#222a3a] touch-manipulation"
+          >
             {menuHidden ? "Show menu" : "Hide menu"}
           </button>
         </div>
-
+        {/* ... A+/A- unchanged, but also add type and pointer handler */}
         <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={() => setFontScale((s) => clamp(s + 0.1, 0.5, 3))}
-            className="px-3 py-2 rounded-xl font-semibold text-sm bg-[#121722] border border-[#222a3a]"
-            title="Increase size">
+            onPointerDown={() => setFontScale((s) => clamp(s + 0.1, 0.5, 3))}
+            className="px-3 py-2 rounded-xl font-semibold text-sm bg-[#121722] border border-[#222a3a] touch-manipulation"
+            title="Increase size"
+          >
             A+
           </button>
           <button
+            type="button"
             onClick={() => setFontScale((s) => clamp(s - 0.1, 0.5, 3))}
-            className="px-3 py-2 rounded-xl font-semibold text-sm bg-[#121722] border border-[#222a3a]"
-            title="Decrease size">
+            onPointerDown={() => setFontScale((s) => clamp(s - 0.1, 0.5, 3))}
+            className="px-3 py-2 rounded-xl font-semibold text-sm bg-[#121722] border border-[#222a3a] touch-manipulation"
+            title="Decrease size"
+          >
             A-
           </button>
         </div>
       </footer>
+
 
       {/* Pop animation */}
       <style>{`@keyframes pop { 0% { transform: scale(0.92); opacity: 0.6; } 100% { transform: scale(1); opacity: 1; } }`}</style>

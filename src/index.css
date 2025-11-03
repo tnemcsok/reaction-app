@@ -6,3 +6,5 @@ html, body, #root {
   background: #0b0e14;
   color: #f2f2f2;
 }
+
+.touch-manipulation { touch-action: manipulation; }
